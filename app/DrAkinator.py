@@ -12,6 +12,7 @@ def app():
       case "idk": model.classify(0.5)
       case "pn": model.classify(0.25)
       case "n": model.classify(0)
+      case "reset": model.restart()
       case "quit": return
       case "exit": return
       case _: 
