@@ -27,6 +27,7 @@ diseaseEncoder.fit(diseases)
 symptomEncoder = LabelEncoder()
 symptomEncoder.fit(symptoms)
 
+# Construct dataframe
 symp2dis: list[dict[str,str|float]] = []
 for _, row in data.iterrows():
   sample: dict[str,str|float] = {"Disease": row.Disease, **{str(symp):0 for symp in symptoms}}
@@ -37,7 +38,7 @@ for _, row in data.iterrows():
   symp2dis.append(sample)
   
   # add noisy samples
-  for _ in range(9):
+  for _ in range(10):
     noisy = sample.copy()
     for symp in noisy:
       if symp == "Disease": continue
@@ -46,7 +47,7 @@ for _, row in data.iterrows():
       if noisy[symp] == 1:
         if rand < 0.2: noisy[symp] = 0.75
         elif rand < 0.3: noisy[symp] = 0.5
-      if noisy[symp] == 0:
+      elif noisy[symp] == 0:
         if rand < 0.2: noisy[symp] = 0.25
         elif rand < 0.3: noisy[symp] = 0.5
     symp2dis.append(noisy)
@@ -78,12 +79,12 @@ class Model:
 
   @property
   def deducedDisease(self) -> str: 
-    return diseaseEncoder.inverse_transform([np.argmax(self._clf.tree_.value[self._node])])[0]
+    return self._clf.classes_[np.argmax(self._clf.tree_.value[self._node])]
   
   @property
   def currentSymptom(self) -> str:
-    return symptomEncoder.inverse_transform([self._clf.tree_.feature[self._node]])[0]
-  
+    return x_train.columns[self._clf.tree_.feature[self._node]]
+
   @property
   def diseaseProbabilities(self):
     return sorted(
@@ -112,7 +113,7 @@ class Model:
   def getLatency(self,x_test):
     start = time.perf_counter()
     self._clf.predict(x_test)
-    return (time.perf_counter() - start) * 1000
+    return (time.perf_counter() - start) * 1000 / x_test.shape[0]
 
   def classify(self, score: float):
     if self.hasDeduced: return
@@ -141,7 +142,7 @@ if __name__ == "__main__":
     xticklabels = model.labels,   
     yticklabels = model.labels,
   )
-  plt.xlabel('True Label')
-  plt.ylabel('Predicted Label')
+  plt.xlabel('Predicted Label')
+  plt.ylabel('True Label')
   plt.title('Confusion Matrix: Predicted vs True Categories')
   plt.show()
