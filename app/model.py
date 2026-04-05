@@ -2,7 +2,6 @@ import time
 import pandas as pd
 import numpy as np
 from sklearn import tree
-from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import classification_report, confusion_matrix
 
@@ -20,12 +19,6 @@ data = data.map(str.strip)  # strip data of leading and trailing whitespace
 
 diseases = data.Disease.unique()
 symptoms = pd.unique(np.array([x.strip() for x in data[data.columns[1:]].values.flatten() if x]))
-
-# maps string to number
-diseaseEncoder = LabelEncoder()
-diseaseEncoder.fit(diseases)
-symptomEncoder = LabelEncoder()
-symptomEncoder.fit(symptoms)
 
 # Construct dataframe
 symp2dis: list[dict[str,str|float]] = []
@@ -51,6 +44,15 @@ for _, row in data.iterrows():
         if rand < 0.2: noisy[symp] = 0.25
         elif rand < 0.3: noisy[symp] = 0.5
     symp2dis.append(noisy)
+
+# add outliers
+for _ in range(10):
+  symp2dis.append({"Disease": "YesYesYes...", **{str(symp):1 for symp in symptoms}})
+  symp2dis.append({"Disease": "ProbablyProbablyProbably...", **{str(symp):0.75 for symp in symptoms}})
+  symp2dis.append({"Disease": "IdkIdkIdk...", **{str(symp):0.5 for symp in symptoms}})
+  symp2dis.append({"Disease": "ProbablyNotProbablyNotProbablyNot...", **{str(symp):0.25 for symp in symptoms}})
+  symp2dis.append({"Disease": "NoNoNo...", **{str(symp):0 for symp in symptoms}})
+
 X = pd.DataFrame(symp2dis)
 
 # Select randomly for training
