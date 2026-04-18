@@ -55,7 +55,7 @@ class DrAkinatorView:
       st.rerun()
   
   def showInquiry(self, currentSymptom: str):
-    st.subheader(f"Does your disease involve {currentSymptom}?")
+    st.subheader(f"Does your disease involve {currentSymptom.replace('_', ' ')}?")
     for label in [
       "Yes",
       "Probably",
