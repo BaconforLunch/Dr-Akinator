@@ -26,16 +26,18 @@ data = data.map(str.strip)  # strip data of leading and trailing whitespace
 diseases = data.Disease.unique()
 symptoms = pd.unique(np.array([x.strip() for x in data[data.columns[1:]].values.flatten() if x]))
 
+
 # Construct dataframe
 symp2dis: list[dict[str,str|float]] = []
 for _, row in data.iterrows():
 
   # refactored to add instead of treating as strict yes-no, f1-score jumped for some reason
+  # refactored again to add probably_yes, reasoning was that "yes" is too sure, so treat symptom as "probable" relation
   sample: dict[str,str|float] = {"Disease": row.Disease, **{str(symp):NOT for symp in symptoms}}
   highest = 0.0
   for symp in row[data.columns[1:]]:
     if not symp: continue
-    val = float(sample[symp]) + YES
+    val = float(sample[symp]) + PROBABLY_YES
     sample[symp] = val
   
   symp2dis.append(sample)
