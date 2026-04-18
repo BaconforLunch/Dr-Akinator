@@ -8,6 +8,12 @@ from sklearn.metrics import classification_report, confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+YES = 1.0
+PROBABLY_YES = 0.75
+IDK = 0.5
+PROBABLY_NOT = 0.25
+NOT = 0.0
+
 data = pd.read_csv("data/raw/dataset.csv")
 # severity = pd.read_csv("data/raw/symptom-severity.csv")
 
@@ -23,10 +29,10 @@ symptoms = pd.unique(np.array([x.strip() for x in data[data.columns[1:]].values.
 # Construct dataframe
 symp2dis: list[dict[str,str|float]] = []
 for _, row in data.iterrows():
-  sample: dict[str,str|float] = {"Disease": row.Disease, **{str(symp):0 for symp in symptoms}}
+  sample: dict[str,str|float] = {"Disease": row.Disease, **{str(symp):NOT for symp in symptoms}}
   for symp in row[data.columns[1:]]:
     if not symp: continue
-    sample[symp] = 1
+    sample[symp] = YES
   
   symp2dis.append(sample)
   
@@ -37,21 +43,21 @@ for _, row in data.iterrows():
       if symp == "Disease": continue
       
       rand = np.random.random()
-      if noisy[symp] == 1:
-        if rand < 0.2: noisy[symp] = 0.75
-        elif rand < 0.3: noisy[symp] = 0.5
-      elif noisy[symp] == 0:
-        if rand < 0.2: noisy[symp] = 0.25
-        elif rand < 0.3: noisy[symp] = 0.5
+      if noisy[symp] == YES:
+        if rand < 0.2: noisy[symp] = PROBABLY_YES
+        elif rand < 0.3: noisy[symp] = IDK
+      elif noisy[symp] == NOT:
+        if rand < 0.2: noisy[symp] = PROBABLY_NOT
+        elif rand < 0.3: noisy[symp] = IDK
     symp2dis.append(noisy)
 
 # add outliers
 for _ in range(10):
-  symp2dis.append({"Disease": "YesYesYes...", **{str(symp):1 for symp in symptoms}})
-  symp2dis.append({"Disease": "ProbablyProbablyProbably...", **{str(symp):0.75 for symp in symptoms}})
-  symp2dis.append({"Disease": "IdkIdkIdk...", **{str(symp):0.5 for symp in symptoms}})
-  symp2dis.append({"Disease": "ProbablyNotProbablyNotProbablyNot...", **{str(symp):0.25 for symp in symptoms}})
-  symp2dis.append({"Disease": "NoNoNo...", **{str(symp):0 for symp in symptoms}})
+  symp2dis.append({"Disease": "YesYesYes...", **{str(symp):YES for symp in symptoms}})
+  symp2dis.append({"Disease": "ProbablyProbablyProbably...", **{str(symp):PROBABLY_YES for symp in symptoms}})
+  symp2dis.append({"Disease": "IdkIdkIdk...", **{str(symp):IDK for symp in symptoms}})
+  symp2dis.append({"Disease": "ProbablyNotProbablyNotProbablyNot...", **{str(symp):PROBABLY_NOT for symp in symptoms}})
+  symp2dis.append({"Disease": "NotNotNot...", **{str(symp):NOT for symp in symptoms}})
 
 X = pd.DataFrame(symp2dis)
 
@@ -89,11 +95,11 @@ class Model:
 
   @property
   def diseaseProbabilities(self):
-    return sorted(
-      zip(self._clf.classes_, self._clf.tree_.value[self._node][0]), 
-      key = lambda kp: kp[1], 
-      reverse = True,
+    df = pd.DataFrame(
+      data    = zip(self._clf.classes_, self._clf.tree_.value[self._node][0]), 
+      columns = ["Disease", "Probability"],
     )
+    return df.sort_values("Probability", ascending=False)
   
   def score(self, x_test, y_test): return self._clf.score(x_test, y_test)
 
