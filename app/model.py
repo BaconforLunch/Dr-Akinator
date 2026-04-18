@@ -29,13 +29,17 @@ symptoms = pd.unique(np.array([x.strip() for x in data[data.columns[1:]].values.
 # Construct dataframe
 symp2dis: list[dict[str,str|float]] = []
 for _, row in data.iterrows():
+
+  # refactored to add instead of treating as strict yes-no, f1-score jumped for some reason
   sample: dict[str,str|float] = {"Disease": row.Disease, **{str(symp):NOT for symp in symptoms}}
+  highest = 0.0
   for symp in row[data.columns[1:]]:
     if not symp: continue
-    sample[symp] = YES
+    val = float(sample[symp]) + YES
+    sample[symp] = val
   
   symp2dis.append(sample)
-  
+
   # add noisy samples
   for _ in range(10):
     noisy = sample.copy()
@@ -50,7 +54,7 @@ for _, row in data.iterrows():
         if rand < 0.2: noisy[symp] = PROBABLY_NOT
         elif rand < 0.3: noisy[symp] = IDK
     symp2dis.append(noisy)
-
+  
 # add outliers
 for _ in range(10):
   symp2dis.append({"Disease": "YesYesYes...", **{str(symp):YES for symp in symptoms}})
