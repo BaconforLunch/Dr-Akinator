@@ -64,7 +64,7 @@ X = pd.DataFrame(symp2dis)
 # Select randomly for training
 x_train, x_test, y_train, y_test = train_test_split(X.drop(columns="Disease"),X.Disease,test_size=0.4,random_state=67)
 
-class Model:
+class DrAkinatorModel:
   def __init__(self):
     self._clf = tree.DecisionTreeClassifier(
       criterion = "entropy",
@@ -131,7 +131,7 @@ class Model:
       self._node = self._clf.tree_.children_left[self._node]
 
 if __name__ == "__main__":
-  model = Model()
+  model = DrAkinatorModel()
   # print(diseases.size)
   # print(symptoms.size)
   # print(data)

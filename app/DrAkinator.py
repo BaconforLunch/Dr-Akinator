@@ -1,8 +1,8 @@
-import streamlit as st
-from model import Model
+from model import DrAkinatorModel, YES, PROBABLY_YES, IDK, PROBABLY_NOT, NOT
+from view import DrAkinatorView, ViewObserver, DrAkinatorState, ResponseType, sessionState
 
 def app():
-  model = Model()
+  model = DrAkinatorModel()
   while not model.hasDeduced:
     print("Most probable diseases:")
     # for dis, prob in model.diseaseProbabilities[:5]: 
@@ -23,47 +23,42 @@ def app():
   print(f"You have {model.deducedDisease}!")
   return
 
-def stapp():
-  if "model" not in st.session_state:
-    st.session_state.model = Model()
+class DrAkinatorController(ViewObserver):
+  def __init__(self, model: DrAkinatorModel, view: DrAkinatorView):
+    view.addObserver(self)
+    self._model = model
+    self._view = view
+  
+  def run(self):
+    self._view.show(DrAkinatorState(
+      currentSymptom        = self._model.currentSymptom,
+      deducedDisease        = self._model.deducedDisease,
+      isGameOver            = self._model.hasDeduced,
+      diseaseProbabilities  = self._model.diseaseProbabilities,
+    ))
 
-  model = st.session_state.model
+  def resetGame(self):
+    self._model.restart()
 
-  st.title("Dr Akinator")
-
-  if model.hasDeduced:
-    st.success(f"You have {model.deducedDisease}!")
-    if st.button("Start Over"):
-      model.restart()
-      st.rerun()
-  else:    
-    st.divider()
-    st.subheader(f"Does your disease involve {model.currentSymptom}?")
-    for label, val in {
-      "Yes": 1.0,
-      "Probably": 0.75,
-      "Don't Know": 0.5,
-      "Probably Not": 0.25,
-      "No": 0,
-    }.items():
-      if st.button(label, use_container_width=True):
-        model.classify(val)
-        st.rerun()
-
-    if st.button("Reset"):
-      model.restart()
-      st.rerun()
-
-    st.divider()
-    st.subheader("Most probable diseases:")
-    st.bar_chart(
-      data        = model.diseaseProbabilities, 
-      x           = "Disease", 
-      y           = "Probability",
-      horizontal  = True,
-      sort        = False,
-    )
+  def handleResponse(self, resp: ResponseType):
+    match resp:
+      case "Yes":
+        self._model.classify(YES)
+      case "Probably":
+        self._model.classify(PROBABLY_YES)
+      case "Don't Know":
+        self._model.classify(IDK)
+      case "Probably Not":
+        self._model.classify(PROBABLY_NOT)
+      case "No":
+        self._model.classify(NOT)
+    
 
 if __name__ == "__main__":
   # app()
-  stapp()  
+
+  if "model" not in sessionState:
+    sessionState.model = DrAkinatorModel()
+  view = DrAkinatorView()
+  controller = DrAkinatorController(sessionState.model, view)
+  controller.run()
