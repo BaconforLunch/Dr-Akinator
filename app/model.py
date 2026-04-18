@@ -1,6 +1,8 @@
 import time
 import pandas as pd
 import numpy as np
+from common import *
+from enum import Enum
 from sklearn import tree
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import classification_report, confusion_matrix
@@ -8,38 +10,41 @@ from sklearn.metrics import classification_report, confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-YES = 1.0
-PROBABLY_YES = 0.75
-IDK = 0.5
-PROBABLY_NOT = 0.25
-NOT = 0.0
+class ResponseWeight(Enum):
+  YES = 1.0
+  PROBABLY_YES = 0.75
+  IDK = 0.5
+  PROBABLY_NOT = 0.25
+  NOT = 0.0
 
-data = pd.read_csv("data/raw/dataset.csv")
+disease2SympData = pd.read_csv("data/raw/dataset.csv")
+diseaseDescData = pd.read_csv("data/raw/disease-description.csv")
 # severity = pd.read_csv("data/raw/symptom-severity.csv")
 
 # Preprocessing
-data.dropna(subset=["Disease"], inplace=True) # remove no labels
-data = data.fillna("") # remove NaNs
-data.columns = data.columns.str.strip()
-data = data.map(str.strip)  # strip data of leading and trailing whitespace
+disease2SympData.dropna(subset=["Disease"], inplace=True) # remove no labels
+disease2SympData = disease2SympData.fillna("") # remove NaNs
+disease2SympData.columns = disease2SympData.columns.str.strip()
+disease2SympData = disease2SympData.map(str.strip)  # strip data of leading and trailing whitespace
 
-diseases = data.Disease.unique()
-symptoms = pd.unique(np.array([x.strip() for x in data[data.columns[1:]].values.flatten() if x]))
+diseases = disease2SympData.Disease.unique()
+symptoms = pd.unique(np.array([x.strip() for x in disease2SympData[disease2SympData.columns[1:]].values.flatten() if x]))
+
+# All Diseases must have Description
+assert(set(diseases).issubset(set(diseaseDescData.Disease)))
 
 
 # Construct dataframe
 symp2dis: list[dict[str,str|float]] = []
-for _, row in data.iterrows():
-
+for _, row in disease2SympData.iterrows():
   # refactored to add instead of treating as strict yes-no, f1-score jumped for some reason
   # refactored again to add probably_yes, reasoning was that "yes" is too sure, so treat symptom as "probable" relation
-  sample: dict[str,str|float] = {"Disease": row.Disease, **{str(symp):NOT for symp in symptoms}}
+  sample: dict[str,str|float] = {"Disease": row.Disease, **{str(symp):ResponseWeight.NOT.value for symp in symptoms}}
   highest = 0.0
-  for symp in row[data.columns[1:]]:
+  for symp in row[disease2SympData.columns[1:]]:
     if not symp: continue
-    val = float(sample[symp]) + PROBABLY_YES
-    sample[symp] = val
-  
+    sample[symp] = ResponseWeight.YES.value
+
   symp2dis.append(sample)
 
   # add noisy samples
@@ -49,21 +54,28 @@ for _, row in data.iterrows():
       if symp == "Disease": continue
       
       rand = np.random.random()
-      if noisy[symp] == YES:
-        if rand < 0.2: noisy[symp] = PROBABLY_YES
-        elif rand < 0.3: noisy[symp] = IDK
-      elif noisy[symp] == NOT:
-        if rand < 0.2: noisy[symp] = PROBABLY_NOT
-        elif rand < 0.3: noisy[symp] = IDK
+      if noisy[symp] == ResponseWeight.YES.value:
+        if rand < 0.2: noisy[symp] = ResponseWeight.PROBABLY_YES.value
+        elif rand < 0.3: noisy[symp] = ResponseWeight.IDK.value
+      elif noisy[symp] == ResponseWeight.NOT.value:
+        if rand < 0.2: noisy[symp] = ResponseWeight.PROBABLY_NOT.value
+        elif rand < 0.3: noisy[symp] = ResponseWeight.IDK.value
     symp2dis.append(noisy)
   
 # add outliers
 for _ in range(10):
-  symp2dis.append({"Disease": "YesYesYes...", **{str(symp):YES for symp in symptoms}})
-  symp2dis.append({"Disease": "ProbablyProbablyProbably...", **{str(symp):PROBABLY_YES for symp in symptoms}})
-  symp2dis.append({"Disease": "IdkIdkIdk...", **{str(symp):IDK for symp in symptoms}})
-  symp2dis.append({"Disease": "ProbablyNotProbablyNotProbablyNot...", **{str(symp):PROBABLY_NOT for symp in symptoms}})
-  symp2dis.append({"Disease": "NotNotNot...", **{str(symp):NOT for symp in symptoms}})
+  symp2dis.append({"Disease": "Always Yes Syndrome", **{str(symp):ResponseWeight.YES.value for symp in symptoms}})
+  symp2dis.append({"Disease": "PROBABLY YES Disease", **{str(symp):ResponseWeight.PROBABLY_YES.value for symp in symptoms}})
+  symp2dis.append({"Disease": "Cluelessness", **{str(symp):ResponseWeight.IDK.value for symp in symptoms}})
+  symp2dis.append({"Disease": "PROBABLY NO Disease", **{str(symp):ResponseWeight.PROBABLY_NOT.value for symp in symptoms}})
+  symp2dis.append({"Disease": "Always No Syndrome", **{str(symp):ResponseWeight.NOT.value for symp in symptoms}})
+diseaseDescData = pd.concat([diseaseDescData, pd.DataFrame([
+  {"Disease": "Always Yes Syndrome", "Description": "Person who keeps on saying Yes. An optimist!"},
+  {"Disease": "PROBABLY YES Disease", "Description": "Person who keeps on saying Probably Yes. Why so uncertain?"},
+  {"Disease": "Cluelessness", "Description": "I don't know about this one."},
+  {"Disease": "PROBABLY NO Disease", "Description": "Person who keeps on saying Probably Not. Why so unsure?"},
+  {"Disease": "Always No Syndrome", "Description": "Person who keeps on saying No. A pessimist."},
+])], ignore_index=True)
 
 X = pd.DataFrame(symp2dis)
 
@@ -92,8 +104,12 @@ class DrAkinatorModel:
     return self._clf.tree_.children_left[self._node] == -1
 
   @property
-  def deducedDisease(self) -> str: 
-    return self._clf.classes_[np.argmax(self._clf.tree_.value[self._node])]
+  def deducedDisease(self) -> Disease: 
+    disease = self._clf.classes_[np.argmax(self._clf.tree_.value[self._node])]
+    return Disease(
+      name = disease,
+      description = diseaseDescData[diseaseDescData["Disease"] == disease].Description.item(),
+    )
   
   @property
   def currentSymptom(self) -> str:
@@ -141,22 +157,21 @@ if __name__ == "__main__":
   # print(diseases.size)
   # print(symptoms.size)
   # print(data)
-  print(model.getClassRep(x_test,y_test))
-  print(f"Latency: {model.getLatency(x_test)} ms")
 
-  mat = model.getConMat(x_test,y_test)
+  # print(model.getClassRep(x_test,y_test))
+  # print(f"Latency: {model.getLatency(x_test)} ms")
 
-  plt.figure(figsize=(100,100))
-  sns.heatmap(
-    data        = mat,
-    square      = True,
-    annot       = False,
-    fmt         = "d",
-    cbar        = True,
-    xticklabels = model.labels,   
-    yticklabels = model.labels,
-  )
-  plt.xlabel('Predicted Label')
-  plt.ylabel('True Label')
-  plt.title('Confusion Matrix: Predicted vs True Categories')
-  plt.show()
+  # plt.figure(figsize=(100,100))
+  # sns.heatmap(
+  #   data        = model.getConMat(x_test,y_test),
+  #   square      = True,
+  #   annot       = False,
+  #   fmt         = "d",
+  #   cbar        = True,
+  #   xticklabels = model.labels,   
+  #   yticklabels = model.labels,
+  # )
+  # plt.xlabel('Predicted Label')
+  # plt.ylabel('True Label')
+  # plt.title('Confusion Matrix: Predicted vs True Categories')
+  # plt.show()

@@ -1,4 +1,4 @@
-from model import DrAkinatorModel, YES, PROBABLY_YES, IDK, PROBABLY_NOT, NOT
+from model import DrAkinatorModel, ResponseWeight
 from view import DrAkinatorView, ViewObserver, DrAkinatorState, ResponseType, sessionState
 
 def app():
@@ -42,17 +42,16 @@ class DrAkinatorController(ViewObserver):
 
   def handleResponse(self, resp: ResponseType):
     match resp:
-      case "Yes":
-        self._model.classify(YES)
-      case "Probably":
-        self._model.classify(PROBABLY_YES)
-      case "Don't Know":
-        self._model.classify(IDK)
-      case "Probably Not":
-        self._model.classify(PROBABLY_NOT)
-      case "No":
-        self._model.classify(NOT)
-    
+      case ResponseType.YES:
+        self._model.classify(ResponseWeight.YES.value)
+      case ResponseType.PROBABLY_YES:
+        self._model.classify(ResponseWeight.PROBABLY_YES.value)
+      case ResponseType.IDK:
+        self._model.classify(ResponseWeight.IDK.value)
+      case ResponseType.PROBABLY_NOT:
+        self._model.classify(ResponseWeight.PROBABLY_NOT.value)
+      case ResponseType.NOT:
+        self._model.classify(ResponseWeight.NOT.value)
 
 if __name__ == "__main__":
   # app()

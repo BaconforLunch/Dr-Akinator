@@ -1,31 +1,29 @@
-from typing import Protocol, Literal, cast
+from typing import Protocol
 from dataclasses import dataclass
+from enum import StrEnum
+from common import *
 import streamlit as st
 import pandas as pd
 
-type ResponseType = Literal[
-  "Yes",
-  "Probably",
-  "Don't Know",
-  "Probably Not",
-  "No",
-]
+class ResponseType(StrEnum):
+  YES = "Yes"
+  PROBABLY_YES = "Probably"
+  IDK = "Don't Know"
+  PROBABLY_NOT = "Probably Not"
+  NOT = "No"
 
 sessionState = st.session_state
 
 @dataclass(frozen=True)
 class DrAkinatorState:
   currentSymptom: str
-  deducedDisease: str
+  deducedDisease: Disease
   isGameOver: bool
   diseaseProbabilities: pd.DataFrame
 
 class ViewObserver(Protocol):
-  def resetGame(self):
-    ...
-
-  def handleResponse(self, resp: ResponseType):
-    ...
+  def resetGame(self): ...
+  def handleResponse(self, resp: ResponseType): ...
 
 class DrAkinatorView:
   def __init__(self):
@@ -48,23 +46,18 @@ class DrAkinatorView:
   def showTitle(self):
     st.title("Dr Akinator")
   
-  def showGameOver(self, deducedDisease: str):
-    st.success(f"You have {deducedDisease}!")
+  def showGameOver(self, deducedDisease: Disease):
+    st.success(f"You have {deducedDisease.name}!")
+    st.write(deducedDisease.description)
     if st.button("Start Over"):
       for obs in self._observers: obs.resetGame()
       st.rerun()
   
   def showInquiry(self, currentSymptom: str):
     st.subheader(f"Does your disease involve {currentSymptom.replace('_', ' ')}?")
-    for label in [
-      "Yes",
-      "Probably",
-      "Don't Know",
-      "Probably Not",
-      "No",
-    ]:
+    for label in ResponseType:
       if st.button(label, use_container_width=True):
-        for obs in self._observers: obs.handleResponse(cast(ResponseType, label))
+        for obs in self._observers: obs.handleResponse(label)
         st.rerun()
 
     if st.button("Reset"):
