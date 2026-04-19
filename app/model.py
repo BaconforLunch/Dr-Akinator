@@ -40,10 +40,9 @@ for _, row in disease2SympData.iterrows():
   # refactored to add instead of treating as strict yes-no, f1-score jumped for some reason
   # refactored again to add probably_yes, reasoning was that "yes" is too sure, so treat symptom as "probable" relation
   sample: dict[str,str|float] = {"Disease": row.Disease, **{str(symp):ResponseWeight.NOT.value for symp in symptoms}}
-  highest = 0.0
   for symp in row[disease2SympData.columns[1:]]:
     if not symp: continue
-    sample[symp] = ResponseWeight.YES.value
+    sample[symp] = (ResponseWeight.PROBABLY_YES.value + float(sample[symp]))
 
   symp2dis.append(sample)
 
