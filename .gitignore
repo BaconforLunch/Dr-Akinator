@@ -1,4 +1,5 @@
 pyrightconfig.json
 data/raw/
+output/
 **/__pycache__/
 .vscode/
