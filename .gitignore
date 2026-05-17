@@ -2,3 +2,4 @@ pyrightconfig.json
 data/raw/
 **/__pycache__/
 .vscode/
+artifact/

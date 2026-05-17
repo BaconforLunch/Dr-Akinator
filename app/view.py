@@ -1,16 +1,8 @@
 from typing import Protocol
 from dataclasses import dataclass
-from enum import StrEnum
 from common import *
 import streamlit as st
 import pandas as pd
-
-class ResponseType(StrEnum):
-  YES = "Yes"
-  PROBABLY_YES = "Probably"
-  IDK = "Don't Know"
-  PROBABLY_NOT = "Probably Not"
-  NOT = "No"
 
 sessionState = st.session_state
 
@@ -23,7 +15,7 @@ class DrAkinatorState:
 
 class ViewObserver(Protocol):
   def resetGame(self): ...
-  def handleResponse(self, resp: ResponseType): ...
+  def handleResponse(self, resp: GameResponse): ...
 
 class DrAkinatorView:
   def __init__(self):
@@ -55,8 +47,8 @@ class DrAkinatorView:
   
   def showInquiry(self, currentSymptom: str):
     st.subheader(f"Does your disease involve {currentSymptom.replace('_', ' ')}?")
-    for label in ResponseType:
-      if st.button(label, use_container_width=True):
+    for label in GameResponse:
+      if st.button(label.text, use_container_width=True):
         for obs in self._observers: obs.handleResponse(label)
         st.rerun()
 
